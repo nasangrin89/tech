@@ -1,0 +1,54 @@
+#apiVersion: extensions/v1beta1
+apiVersion: apps/v1
+kind: StatefulSet
+#kind: Deployment
+metadata:
+  name: rabbitmq-deployment
+  namespace: rabbitmq
+  labels:
+    app: rabbitmq
+spec:
+  replicas: 1
+  serviceName: rabbiqmq
+  selector:
+    matchLabels:
+      app: rabbitmq
+  template:
+    metadata:
+      labels:
+        app: rabbitmq
+    spec:
+      tolerations:  
+      - key: worker
+        operator: Equal
+        value: kw
+        effect: NoSchedule
+      containers:
+        - image: rabbitmq-image
+          name: rabbitmq
+          resources:
+            requests:
+              cpu: 50m
+              memory: 200Mi
+            limits:
+              cpu: 1500m
+              memory: 5Gi
+          env:
+            - name: RABBITMQ_DEFAULT_VHOST
+              value: csap
+            - name: RABBITMQ_DEFAULT_USER
+              value: admin
+            - name: RABBITMQ_DEFAULT_PASS
+              value: admin
+          ports:
+            - containerPort: 5672
+              name: rabbitmq
+            - containerPort: 15672
+              name: rabbitmq-manage
+          volumeMounts:
+            - name: rabbitmq-cinder
+              mountPath: /var/lib/rabbitmq
+      volumes:
+        - name: rabbitmq-cinder
+          persistentVolumeClaim:
+            claimName: rabbitmq-cinder

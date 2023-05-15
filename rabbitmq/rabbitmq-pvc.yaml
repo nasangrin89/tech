@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: rabbitmq-cinder
+  namespace: rabbitmq
+spec:
+  storageClassName: csi-cinder-sc-retain # 반드시 스토리지클래스명과 동일하게 해야한다.
+  accessModes:
+    - ReadWriteMany #  must be the same as PersistentVolume
+  resources:
+    requests:
+      storage: 10Gi

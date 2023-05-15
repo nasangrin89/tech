@@ -1,0 +1,10 @@
+namespace: rabbitmq
+resources:
+  - rabbitmq-statefulset.yaml
+  - rabbitmq-pvc.yaml
+  - rabbitmq-service.yaml
+  - rabbitmq-ingress.yaml
+images:
+  - name: rabbitmq-image
+    newName: rabbitmq
+    newTag: 3.8.34-management-prometheus-alpine
