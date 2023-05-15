@@ -3,7 +3,7 @@
 <p align="center">
     <Strong>☁️SNS List☁️</Strong><br><br>
     <a href="https://velog.io/@grin" target="_blank"><img src="https://img.shields.io/badge/Velog-20C997?style=flat-square&logo=Velog&logoColor=white"/></a>
-    <a href="www.linkedin.com/in/sangrin-rah-19891019grin" target="_blank"><img src="https://img.shields.io/badge/LinkedIn-0A66C2?style=flat-square&logo=LinkedIn&logoColor=white"/></a>
+    <a href="https://www.linkedin.com/in/sangrin-rah-19891019grin/" target="_blank"><img src="https://img.shields.io/badge/LinkedIn-0A66C2?style=flat-square&logo=LinkedIn&logoColor=white"/></a>
     <br>
 <br><br>
 <Strong>📧Email📧</Strong><br>nasangrin@gmail.com<br>
