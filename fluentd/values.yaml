@@ -1,0 +1,36 @@
+dkos:
+  clusterName: #  Inject By Helm Install By '--set'
+
+
+registry:
+  private: false
+  imageRegistryHost: ""
+
+daemonset:
+  image:
+    repository: fluentd-kubernetes-daemonset
+    tag: r20190529a
+    resources:
+      limits:
+        memory: 400Mi
+      requests:
+        cpu: 100m
+        memory: 200Mi
+
+configmap:
+  source:
+    exclude_path:
+      pods:
+        - fluentd
+  store:
+    stdout:
+      enabled: false
+    kemi:
+      enabled: false
+      host:
+    logAgg:
+      enabled: false
+      host:
+    es:
+      enabled: true
+      host: 

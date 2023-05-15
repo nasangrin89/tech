@@ -1,0 +1,153 @@
+{{- define "exclude_path_list" -}}
+  {{- $namespace_prefix := "/var/log/containers/*_" }}
+  {{- $namespace_postfix := "_*.log" }}
+  {{- $pod_prefix := "/var/log/containers/" }}
+  {{- $pod_postfix := "*.log" }}
+  {{- $exclude := dict "path" (list) }}
+  {{- range $namespace := .Values.configmap.source.exclude_path.namespaces }}
+  {{- $noop := printf "%s%s%s" $namespace_prefix $namespace $namespace_postfix | append $exclude.path | set $exclude "path" }}
+  {{- end }}
+  {{- range $pod := .Values.configmap.source.exclude_path.pods }}
+  {{- $noop := printf "%s%s%s" $pod_prefix $pod $pod_postfix | append $exclude.path | set $exclude "path" }}
+  {{- end }}
+  {{- printf "[\"%s\"]" (join "\",\"" $exclude.path) }}
+{{- end -}}
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fluentd-configmap
+  namespace: fluentd
+  labels:
+    k8s-app: fluentd-logging
+    kubernetes.io/cluster-service: "true"
+    version: v1
+  annotations:
+    fluentd/kafka-plugin-version: 0.9.5
+    fluentd/elasticsearch-plugin-version: 3.4.3
+    ruby: 2.6.3
+    gem/fluentd-version: 1.4.2
+    gem/ruby-kafka-version: 0.7.7
+    gem/elasticsearch-version: 7.0.0
+data:
+  filter-kubernetes.conf: |
+    <filter kubernetes.**>
+      @type                           kubernetes_metadata
+      @id                             filter_kube_metadata
+    </filter>
+
+    <match kubernetes.**>
+     @type          record_modifier
+     tag            ${record.dig("kubernetes", "container_name").gsub('-', '.')}
+     char_encoding  utf-8
+     <record>
+        appLabel                      ${record.dig("kubernetes", "container_name")}
+        @timestamp                    ${Time.at(time).strftime('%Y-%m-%dT%H:%M:%S.%L+09:00')}
+        cluster_name                  "kakaowork"
+        hostname                      "#{ENV['K8S_NODE_NAME']}"
+     </record>
+    </match>
+    
+
+    # log에 해당하는 부분을 파싱하기 위한 부분
+    # 만약에 @type json이면서, 해당하는 time_key가 존재하지 않는경우, 이 필터에 도착한 시간으로 event_time이 바뀐다.
+    
+    <worker 0>
+    <source>
+      @type                           tail
+      @id                             in_tail_container_logs
+      path                            /var/log/containers/*.log
+      pos_file                        /var/log/fluentd-containers.log.pos
+      exclude_path                    ["/var/log/containers/fluentd*.log","/var/log/containers/redis*.log","/var/log/containers/linkerd*.log","/var/log/containers/calico*.log","/var/log/containers/zk-*.log","/var/log/containers/argocd*.log","/var/log/containers/kibana*.log","/var/log/containers/kubernetes-metrics-scraper*.log","/var/log/containers/kubernetes-dashboard*.log","/var/log/containers/nodelocaldns*.log","/var/log/containers/airflow*.log","/var/log/containers/csi-cinder*.log","/var/log/containers/kocoon-prometheus-prometheus-node-exporter*.log","/var/log/containers/local-volume-provisioner*.log"]
+      tag                             kubernetes.*
+      read_from_head                  "#{ENV['FLUENTD_INPUT_READ_FROM_HEAD'] || 'false'}"
+      limit_recently_modified         "#{ENV['LIMIT_RECENTLY_MODIFIED'] || '120m'}"
+      rotate_wait                     0
+      enable_stat_watcher             false
+      <parse>
+        @type                         regexp
+        expression                    /^(?<time>.+) (?<stream>stdout|stderr)( (?<logtag>.))? (?<log>.*)$/
+        time_format                   %Y-%m-%dT%H:%M:%S.%L%z
+        time_key                      time
+        keep_time_key                 true
+      </parse>
+    </source>
+    </worker>
+
+    <filter **>
+      @type                           parser
+      key_name                        log
+      reserve_data                    true
+      emit_invalid_record_to_error    false
+      remove_key_name_field           true
+      <parse>
+        @type                         json
+        expression                    "#{ENV['APP_LOG_EXPRESSION'] || '/^.*$/' }"
+        types                         "#{ENV['APP_LOG_FORMAT_TYPES'] || nil}"
+        keep_time_key                 true
+        estimate_current_event        false
+        time_key                      "#{ENV['APP_LOG_TIME_KEY'] || '__time__log__agent__' }"
+        time_format                   "#{ENV['APP_LOG_TIME_KEY_FORMAT'] || '%Y-%m-%d %H:%M:%S.%NZ' }"
+        message_key                   log
+      </parse>
+    </filter>
+    
+    <filter **>
+      @type concat
+      key loga
+      separator ""
+      multiline_start_regexp /job.logger/
+      multiline_end_regexp /job.logger.EOL/
+    </filter>
+    
+  fluent.conf: |
+    <system>
+      workers 1
+      @log_level debug
+    </system>
+
+    @include input-kubernetes.conf
+    @include filter-kubernetes.conf
+   
+    <match **>
+      @type copy
+      <store>
+        @id   copy_stdout
+        @type stdout
+      </store>
+      <store>
+        @type                         elasticsearch
+        @id                           out_es
+        include_tag_key               true
+        host                          "es host"
+        port                          "9200"
+        user                          
+        password                      
+        scheme                        http
+        reload_connections            true
+        logstash_prefix               ${tag}
+        logstash_format               true
+        logstash_dateformat           %Y.%m.%d
+        type_name                     fluentd
+        id_key                        _uuid
+        log_es_400_reason             true
+        <buffer tag>
+          @type                       memory
+          path                        /var/log/td-agent/buffer/ep-es/
+          flush_thread_count          8
+          chunk_limit_size            16mb
+          queue_limit_length          2560
+          flush_at_shutdown           true
+          flush_interval              10
+          retry_max_times             10
+          retry_forever               false
+        </buffer>
+      </store>
+    </match>
+  input-kubernetes.conf: |
+    # Prevent fluentd from handling records containing its own logs. Otherwise
+    # it can lead to an infinite loop, when error in sending one message generates
+    # another message which also fails to be sent and so on.
+    <match fluent.**>
+      @type                           null
+    </match>

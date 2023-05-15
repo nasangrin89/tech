@@ -1,0 +1,16 @@
+# 생성한 서비스 어카운트에 권한(Role)생성
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: fluentd-cluster-role
+  namespace: fluentd
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  - namespaces
+  verbs:
+  - get
+  - list
+  - watch

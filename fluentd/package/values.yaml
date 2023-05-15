@@ -1,0 +1,30 @@
+dkos:
+  clusterName: 
+
+imageRegistryHost: ""
+
+daemonset:
+  image:
+    repository: fluentd-kubernetes-daemonset
+    tag: 
+    resources:
+      limits:
+        memory: 400Mi
+      requests:
+        cpu: 100m
+        memory: 200Mi
+
+configmap:
+  source:
+    exclude_path:
+      pods:
+        - fluentd
+  store:
+    stdout:
+      enabled: true
+    kemi:
+      enabled: false
+      host:
+    logAgg:
+      enabled: true
+      host: 

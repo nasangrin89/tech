@@ -1,0 +1,6 @@
+releases:
+  - name: fluentd
+    namespace: fluentd
+    chart: ../../
+    values:
+      - ./values.yaml

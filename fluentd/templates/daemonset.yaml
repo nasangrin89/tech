@@ -1,0 +1,81 @@
+# Fluentd 파드를 Daemonset 타입으로 배포
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: fluentd-daemonset
+  namespace: fluentd
+  labels:
+    k8s-app: fluentd-logging
+    kubernetes.io/cluster-service: "true"
+    version: v1
+  annotations:
+    fluentd/kafka-plugin-version: 0.9.5
+    fluentd/elasticsearch-plugin-version: 3.4.3
+    ruby: 2.6.3
+    gem/fluentd-version: 1.4.2
+    gem/ruby-kafka-version: 0.7.7
+    gem/elasticsearch-version: 7.0.0
+spec:
+  selector:
+    matchLabels:
+      k8s-app: fluentd-logging
+      kubernetes.io/cluster-service: "true"
+      version: v1
+  updateStrategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        k8s-app: fluentd-logging
+        kubernetes.io/cluster-service: "true"
+        version: v1
+    spec:
+      serviceAccount: fluentd-service-account
+      serviceAccountName: fluentd-service-account
+      tolerations:
+        - effect: NoSchedule
+          operator: Exists
+        - effect: NoExecute
+          operator: Exists
+      containers:
+        - name: fluentd
+          image: {{ if .Values.registry.private }}{{.Values.registry.imageRegistryHost }}/{{ end }}{{ .Values.daemonset.image.repository }}:{{ .Values.daemonset.image.tag }}
+          imagePullPolicy: IfNotPresent
+          # Fluentd에 대한 환경변수 설정.
+          env:
+            - name: K8S_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          resources:
+{{ toYaml .Values.daemonset.image.resources | indent 12 }}
+          volumeMounts:
+            - name: varlog
+              mountPath: /var/log
+            - name: varlibdockercontainers
+              mountPath: /var/lib/docker/containers
+              readOnly: true
+            - name: resolvconf
+              mountPath: /etc/resolv.conf
+            - name: tz-config
+              mountPath: /etc/localtime
+              readOnly: true
+            - name: fluentd-config
+              mountPath: /fluentd/etc/
+      terminationGracePeriodSeconds: 30
+      volumes:
+        - name: varlog
+          hostPath:
+            path: /var/log
+        - name: varlibdockercontainers
+          hostPath:
+            path: /var/lib/docker/containers
+        - name: resolvconf
+          hostPath:
+            path: /etc/resolv.conf
+        - name: tz-config
+          hostPath:
+            path: /etc/localtime
+        - name: fluentd-config
+          configMap:
+            name: fluentd-configmap
