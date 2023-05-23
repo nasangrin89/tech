@@ -1,0 +1,22 @@
+version: '3'
+services:
+  gitlab:
+    image: "csap-sre-cr/gitlab-ce:15.6.2-ce.0"
+    container_name: gitlab
+    restart: always
+    hostname: "example-gitlab-csap"
+    environment:
+      GITLAB_ROOT_PASSWORD: admin
+      GITLAB_TIMEZONE: Asia/Seoul
+      GITLAB_OMNIBUS_CONFIG: |
+        external_url 'http://gitlab.example.com'
+        nginx['gzip_enabled'] = false
+        nginx['client_max_body_size'] = '0'
+        nginx['listen_https'] = false
+    ports:
+      - "80:80"
+    volumes:
+      - "/data1/config:/etc/gitlab"
+      - "/data1/logs:/var/log/gitlab"
+      - "/data1/data:/var/opt/gitlab"
+      - "/data1/backups:/var/opt/gitlab/backups"
